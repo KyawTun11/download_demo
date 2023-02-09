@@ -1,11 +1,13 @@
+import 'dart:convert';
 import 'dart:isolate';
 import 'dart:ui';
-import 'package:download_demo/app/model/model.dart';
+import 'package:download_demo/app/data_base/data_base_model.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../data_base/daa_base_helper.dart';
 
 class DownloadController extends GetxController {
   final count = 0.obs;
@@ -14,14 +16,11 @@ class DownloadController extends GetxController {
   ReceivePort receivePort = ReceivePort();
   var downloadStatus = DownloadTaskStatus.undefined.obs;
 
-  //var taskId = "".obs;
   String path = "";
   String? fileName = "downloader";
-  final storage = GetStorage();
-
-  //late List<DownloadTask> tasks = [].obs;
-  //var tasks = DownloadTask ;
   RxList<DownloadTask> tasks = <DownloadTask>[].obs;
+  final box = GetStorage();
+
   //RxMap<String, int> progressTasks = <String, int>{}.obs;
 
   @override
@@ -35,7 +34,7 @@ class DownloadController extends GetxController {
       progress.value = progressValue.toDouble();
       update();
     });
-
+    loadTasks();
     super.onInit();
   }
 
@@ -53,7 +52,26 @@ class DownloadController extends GetxController {
   void onClose() {}
 
   loadTasks() async {
-    tasks.value = (await FlutterDownloader.loadTasks())!;
+    var dh = loadMoviesData();
+    for (var mv in dh) {
+      var newTaskId = mv.taskId;
+      var newTasks = await FlutterDownloader.loadTasksWithRawQuery(
+          query: "SELECT * FROM task where task_id = '$newTaskId'");
+      if (newTasks != null && newTasks.isNotEmpty) {
+        tasks.add(newTasks.first);
+      } else {
+        tasks.add(DownloadTask(
+            taskId: newTaskId,
+            status: DownloadTaskStatus.complete,
+            progress: 100,
+            url: "",
+            filename: "",
+            savedDir: "",
+            timeCreated: 1,
+            allowCellular: true));
+      }
+    }
+
     update();
   }
 
@@ -78,7 +96,7 @@ class DownloadController extends GetxController {
     startDownload.value = true;
     downloadStatus.value = DownloadTaskStatus.running;
     final baseStorage = await getExternalStorageDirectory();
-    if(baseStorage == null) {
+    if (baseStorage == null) {
       return;
     }
     var path = baseStorage.path;
@@ -91,40 +109,38 @@ class DownloadController extends GetxController {
         query: "SELECT * FROM task where task_id = '$newTaskId'");
     if (newTasks != null && newTasks.isNotEmpty) {
       tasks.add(newTasks.first);
+
+      var data = MoviesDownload(taskId: newTasks.first.taskId, progress: 0);
+      var downloadHistory = loadMoviesData();
+
+      if (downloadHistory.isEmpty) {
+        List<MoviesDownload> newList = [];
+        newList.add(data);
+        await saveData(newList);
+      } else {
+        downloadHistory.add(data);
+        await saveData(downloadHistory);
+      }
     }
     update();
   }
 
-  downloadFile(String url) async {
-    startDownload.value = true;
-    downloadStatus.value = DownloadTaskStatus.running;
-    final status = await Permission.storage.request();
-    DateTime now = DateTime.now();
+  Future<void> saveData(List<MoviesDownload> data) async {
+    var dataAsMap = data.map((d) => d.toJson()).toList();
+    String jsonString = jsonEncode(dataAsMap);
+    await box.write('movies', jsonString);
+  }
 
-    if (status.isGranted) {
-      final baseStorage =
-          await getExternalStorageDirectories(type: StorageDirectory.downloads);
-      path = baseStorage!.first.path;
-      var newTaskId = await FlutterDownloader.enqueue(
-        url: url,
-        headers: {},
-        showNotification: true,
-        openFileFromNotification: true,
-        saveInPublicStorage: true,
-        savedDir: path,
-        //fileName: fileName,
-        fileName: 'Sample${now.millisecondsSinceEpoch}.mp4',
-      );
-      // .then((value) => taskId.value = value!);
-      var newTasks = await FlutterDownloader.loadTasksWithRawQuery(
-          query: "SELECT * FROM task where task_id = '$newTaskId'");
-      if (newTasks != null && newTasks.isNotEmpty) {
-        tasks.add(newTasks.first);
-      }
-    } else {
-      print("No Permission");
+  List<MoviesDownload> loadMoviesData() {
+    List<MoviesDownload> data = [];
+
+    if (box.hasData('movies')) {
+      var result = box.read('movies');
+      dynamic jsonData = jsonDecode(result);
+      jsonData.map((d) => data.add(MoviesDownload.fromJson(d))).toList();
     }
-    update();
+
+    return data;
   }
 
   pauseDownload(String? task) async {

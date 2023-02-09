@@ -25,26 +25,26 @@ class DownloadActionButton extends StatelessWidget {
       //     onPressed: () => controller.downloadFile(url),
       //   );
       // } else
-      if (controller.downloadStatus.value == DownloadTaskStatus.running) {
+      if (tasks.status == DownloadTaskStatus.running) {
         return ButtonWidget(
           title: 'Paused',
           icon: Icons.pause,
           onPressed: () => controller.pauseDownload(tasks.taskId),
         );
-      } else if (controller.downloadStatus.value == DownloadTaskStatus.paused) {
+      } else if (tasks.status  == DownloadTaskStatus.paused) {
         return ButtonWidget(
           title: 'Resume',
           icon: Icons.play_arrow,
           onPressed: () => controller.resumeDownload(tasks.taskId),
         );
-      } else if (controller.downloadStatus.value == DownloadTaskStatus.failed) {
+      } else if (tasks.status  == DownloadTaskStatus.failed) {
         return ButtonWidget(
           title: 'Retry',
           icon: Icons.refresh,
           onPressed: () => controller.retryDownload(tasks.taskId),
         );
       }
-      else if (controller.downloadStatus.value == DownloadTaskStatus.complete) {
+      else if (tasks.status  == DownloadTaskStatus.complete) {
         return ButtonWidget(
           title: 'Deleted',
           icon: Icons.delete,

@@ -1,7 +1,5 @@
-import 'package:download_demo/app/modules/download/widget/button_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../routes/app_pages.dart';
 import '../controllers/download_controller.dart';
 import '../widget/download_action_button_widget.dart';
 import '../widget/download_prodess_widget.dart';
@@ -43,6 +41,7 @@ class DownloadView extends StatelessWidget {
                 speed: '19mb/16m',
                 progressValue: controller.progress.value / 100,
               ),
+              SizedBox(height: 20),
               ListView.builder(
                 shrinkWrap: true,
                   itemCount: controller.tasks.length,
